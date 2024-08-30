@@ -1,0 +1,18 @@
+services:
+  docker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    environment:
+      DRK_PORT: 3000
+      DKR_GEMINI_API_KEY: ${ENV_GEMINI_API_KEY}
+      DKR_MONGODB_URI: ${ENV_MONGODB_URI}
+    volumes:
+      - ./src:/home/node/app/src
+      - ./nodemon.json:/home/node/app/nodemon.json
+    expose:
+      - '3000'
+    ports:
+      - '3000:3000'
+    command: npm run dev

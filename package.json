@@ -1,15 +1,23 @@
 {
-  "name": "gw-api",
+  "name": "measurewater-api",
   "version": "1.0.0",
   "main": "index.js",
-  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "NODE_PATH=./build node build/index.js",
+    "build": "tsc -p .",
+    "dev": "nodemon src/index.ts"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/uuid": "^10.0.0",
+    "@types/validator": "^13.12.1",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.17.1",
     "dotenv": "^16.4.5",
