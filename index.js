@@ -22,6 +22,9 @@ const connectDB = async () => {
 
 connectDB();
 
+// !CADA ENDPOINT DEVE TER SEU ARQUIVO!
+// --- ENDPOINT: POST /upload ---
+
 const readingSchema = new mongoose.Schema({
   customer_code: String,
   measure_datetime: Date,
@@ -29,6 +32,7 @@ const readingSchema = new mongoose.Schema({
   measure_value: Number,
   measure_uuid: String,
   image_url: String,
+  confirmed_value: Number,
 }, { timestamps: true });
 
 const Reading = mongoose.model("Reading", readingSchema);
@@ -165,6 +169,114 @@ app.post("/upload", async (req, res) => {
     res.status(500).json({ error: "Erro ao processar imagem." });
   }
 });
+
+// --- ENDPOINT: PATCH /confirm ---
+
+app.patch("/confirm", async (req, res) => {
+  const { measure_uuid, confirmed_value } = req.body;
+
+  if (!measure_uuid || typeof measure_uuid !== "string") {
+    return res.status(400).json({
+      error_code: "INVALID_DATA",
+      error_description: "O campo 'measure_uuid' é obrigatório e deve ser uma string."
+    });
+  }
+
+  if (!confirmed_value || typeof confirmed_value !== "number") {
+    return res.status(400).json({
+      error_code: "INVALID_DATA",
+      error_description: "O campo 'confirmed_value' é obrigatório e deve ser um número."
+    });
+  }
+
+  try {
+    const reading = await Reading.findOne({ measure_uuid });
+
+    if (!reading) {
+      return res.status(404).json({
+        error_code: "MEASURE_NOT_FOUND",
+        error_description: "Leitura não encontrada."
+      });
+    }
+
+    if (reading.confirmed_value) {
+      return res.status(409).json({
+        error_code: "CONFIRMATION_DUPLICATE",
+        error_description: "Leitura já foi confirmada."
+      });
+    }
+
+    reading.confirmed_value = confirmed_value;
+    await reading.save();
+
+    return res.status(200).json({
+      success: true
+    });
+  } catch (error) {
+    console.error("Erro ao confirmar leitura:", error);
+    return res.status(500).json({ 
+      error_code: "SERVER_ERROR",
+      error_description: "Erro interno do servidor."
+    });
+  }
+});
+
+// --- ENDPOINT: GET /<customer_code>/list?measure_type=<measure_type> ---
+
+app.get("/:customer_code/list", async (req, res) => {
+  const { customer_code } = req.params;
+  const { measure_type } = req.query;
+
+  if (measure_type) {
+    const validMeasureTypes = ["WATER", "GAS"];
+    if (!validMeasureTypes.includes(measure_type.toUpperCase())) {
+      return res.status(400).json({
+        error_code: "INVALID_TYPE",
+        error_description: "Tipo de medição não permitida"
+      });
+    }
+  }
+
+  try {
+    const query = { customer_code };
+    if (measure_type) {
+      query.measure_type = measure_type.toUpperCase();
+    }
+
+    const measures = await Reading.find(query).select(
+      "measure_uuid measure_datetime measure_type image_url confirmed_value"
+    );
+
+    if (measures.length === 0) {
+      return res.status(404).json({
+        error_code: "MEASURES_NOT_FOUND",
+        error_description: "Nenhuma leitura encontrada"
+      });
+    }
+
+    const responseMeasures = measures.map(measure => ({
+      measure_uuid: measure.measure_uuid,
+      measure_datetime: measure.measure_datetime,
+      measure_type: measure.measure_type,
+      has_confirmed: measure.confirmed_value != null,
+      image_url: measure.image_url,
+    }));
+
+    return res.status(200).json({
+      customer_code,
+      measures: responseMeasures
+    });
+
+  } catch (error) {
+    console.error("Erro ao listar medidas:", error);
+    return res.status(500).json({
+      error_code: "SERVER_ERROR",
+      error_description: "Erro interno do servidor"
+    });
+  }
+});
+
+// --- INICIALIZAÇÃO ---
 
 app.listen(port, () => {
   console.log(`API rodando na porta ${port}`);
